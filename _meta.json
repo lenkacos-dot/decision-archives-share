@@ -1,0 +1,11 @@
+{
+  "name": "decision-archives",
+  "version": "1.0.0",
+  "description": "人生决策档案馆 — 记录所有重要决定，评估结果，生成成长叙事与决策者画像",
+  "author": "alan",
+  "created": "2026-07-13",
+  "tags": ["life-management", "journaling", "reflection", "decision-making", "personal-growth"],
+  "dependencies": [],
+  "platform": "cross-platform (stdlib only)",
+  "data_storage": "~/.hermes/skills/decision-archives/data/decisions.json"
+}
