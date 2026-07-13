@@ -20,6 +20,10 @@ import json
 import os
 import sys
 import uuid
+import csv
+import io
+import subprocess
+import webbrowser
 from datetime import datetime, date, timedelta
 from textwrap import wrap
 
@@ -117,6 +121,39 @@ def pick_option(prompt, options):
 
 # ── 命令实现 ──────────────────────────────────────────
 
+# 默认矩阵维度
+MATRIX_DIMS = ["收益", "风险", "可行性", "直觉", "时间成本"]
+
+
+def _input_matrix(chosen_decision, alternatives_raw):
+    """交互式输入决策矩阵评分"""
+    options = [chosen_decision]
+    for alt in alternatives_raw.split(","):
+        alt = alt.strip()
+        if alt and alt != "无":
+            options.append(alt)
+
+    print("\n  📊 决策矩阵评分")
+    print("  ─────────────")
+    print(f"  维度: {' | '.join(MATRIX_DIMS)}")
+    print("  每项 1-5 分（1=很低 5=很高）")
+
+    entries = []
+    for opt in options:
+        scores = {}
+        print(f"\n  📌 选项: {opt}")
+        for dim in MATRIX_DIMS:
+            while True:
+                s = input(f"    {dim} (1-5): ").strip()
+                if s.isdigit() and 1 <= int(s) <= 5:
+                    scores[dim] = int(s)
+                    break
+                print("    请输入 1-5")
+        entries.append({"name": opt, "scores": scores})
+
+    return {"dimensions": MATRIX_DIMS, "options": entries}
+
+
 def cmd_add(fields=None):
     """记录新决策。fields 为 dict 时使用非交互模式。"""
     print("\n" + "=" * 50)
@@ -140,6 +177,7 @@ def cmd_add(fields=None):
         print(f"  标题: {title}")
         print(f"  风险: {RISK_LEVELS.get(risk, risk)}")
         print(f"  复盘: {review_date}")
+        matrix = None
     else:
         # 交互模式
         category = pick_option("选择类别：", CATEGORIES)
@@ -161,6 +199,12 @@ def cmd_add(fields=None):
         except ValueError:
             print(f"  ⚠️ 日期格式无效，使用默认: {review_date}")
 
+        # ── 决策矩阵（可选） ──
+        matrix = None
+        matrix_choice = ask("是否用决策矩阵为每个选项打分？（y/n）", default="n")
+        if matrix_choice.lower() == "y":
+            matrix = _input_matrix(decision, alternatives_raw)
+
     entry = {
         "id": str(uuid.uuid4()),
         "date_made": date.today().isoformat(),
@@ -175,6 +219,7 @@ def cmd_add(fields=None):
         "status": "pending",
         "review": None,
         "tags": tags,
+        "matrix": matrix,
         "created_at": datetime.now().isoformat(),
     }
 
@@ -608,13 +653,61 @@ def cmd_delete(identifier):
     print(f"✅ 已删除: {entry['title']}")
 
 
-def cmd_export():
-    """导出全部数据"""
+def cmd_export(fmt="json"):
+    """导出数据。fmt=json 或 csv"""
     data = load_data()
-    print(json.dumps(data, ensure_ascii=False, indent=2))
+    decisions = data.get("decisions", [])
+
+    if fmt == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "id", "date_made", "category", "title", "decision_made",
+            "alternatives", "rationale", "expected_outcome", "risk_level",
+            "review_date", "status", "rating", "outcome", "lessons", "tags"
+        ])
+        for d in decisions:
+            writer.writerow([
+                d["id"][:8],
+                d["date_made"],
+                d["category"],
+                d["title"],
+                d["decision_made"],
+                "; ".join(d.get("alternatives", [])),
+                d.get("rationale", ""),
+                d.get("expected_outcome", ""),
+                d.get("risk_level", ""),
+                d.get("review_date", ""),
+                d.get("status", ""),
+                d["review"]["rating"] if d.get("review") else "",
+                d["review"]["outcome"] if d.get("review") else "",
+                d["review"]["lessons"] if d.get("review") else "",
+                "; ".join(d.get("tags", [])),
+            ])
+        print(output.getvalue())
+    else:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
-# ── 主入口 ────────────────────────────────────────────
+def cmd_dashboard():
+    """打开 HTML 仪表盘"""
+    html_path = os.path.join(SKILL_DIR, "dashboard.html")
+    if not os.path.exists(html_path):
+        print(f"❌ 未找到仪表盘文件: {html_path}")
+        print("请确保 dashboard.html 位于 skill 根目录。")
+        return
+    try:
+        if sys.platform == "darwin":
+            subprocess.run(["open", html_path], check=True)
+        elif sys.platform == "win32":
+            os.startfile(html_path)
+        else:
+            subprocess.run(["xdg-open", html_path], check=True)
+        print(f"✅ 已打开仪表盘: {html_path}")
+    except Exception as e:
+        print(f"⚠️ 自动打开失败，请手动打开: {html_path}")
+        print(f"   错误: {e}")
+
 
 def parse_cli_add_args(args):
     """从 CLI 参数解析添加决策所需的字段（非交互模式）"""
@@ -661,7 +754,6 @@ def main():
     command = sys.argv[1]
 
     if command == "add":
-        # 如果有结构化参数就用非交互模式
         cli_fields = parse_cli_add_args(sys.argv[2:])
         if cli_fields:
             cmd_add(cli_fields)
@@ -688,7 +780,15 @@ def main():
             return
         cmd_delete(sys.argv[2])
     elif command == "export":
-        cmd_export()
+        fmt = "json"
+        if len(sys.argv) >= 3 and sys.argv[2] == "--format":
+            if len(sys.argv) >= 4:
+                fmt = sys.argv[3]
+        elif len(sys.argv) >= 2 and sys.argv[-1] == "csv":
+            fmt = "csv"
+        cmd_export(fmt)
+    elif command == "dashboard":
+        cmd_dashboard()
     else:
         print(f"未知命令: {command}")
         print(__doc__)
