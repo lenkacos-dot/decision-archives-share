@@ -1,186 +1,183 @@
 ---
 name: decision-archives
-version: "1.0.0"
-description: "人生决策档案馆 — 记录所有重要决定（换工作、分手、投资、买房、跳槽等），评估结果，半年后复盘：你做对了什么？总在哪种情况下失误？生成成长叙事。当用户需要记录决策、复盘决策、分析决策模式、成长回忆录时激活。"
+version: 2.0.0
+description: >
+  🏛️ 决策档案馆 — 记录人生重要决定，定时复盘评估，生成成长叙事与决策者画像。
+  纯标准库、零依赖、跨平台，适合任何 AI agent 使用。
 triggers:
-  - "记下这个决定"
-  - "记录一个决策"
-  - "决策档案馆"
+  - "决策"
+  - "档案馆"
   - "复盘"
-  - "回顾决策"
-  - "决策分析"
-  - "成长叙事"
-  - "我做了什么决定"
-  - "决策模式"
-  - "人生决定"
-  - "判断失误"
-  - "decision archive"
+  - "决策记录"
+  - "决策评估"
+  - "决策报告"
+  - "决策洞察"
+  - "decision"
+  - "archive"
   - "review decision"
-  - "decision insights"
-tags: [life-management, journaling, reflection, decision-making, personal-growth, growth-narrative]
 ---
 
-# 🏛️ 决策档案馆 — Decision Archives v1.0.0
+# 🏛️ 决策档案馆
 
-> **记录你人生所有重要决定，并评估结果。**  
-> 半年后，系统告诉你：你做对了什么？你总在哪种情况下判断失误？  
-> 这是你的成长叙事引擎。
+> 记录你的决定，定期复盘，看清自己的决策模式，成为更好的决策者。
 
----
+## 兼容性
 
-## 一句话
+- 适用于任何能执行本地脚本的 AI agent。
+- 所有数据保存在项目目录内，不依赖云端平台。
+- 支持中英文命令 + `--json` 输出模式。
 
-你做一个决定 → 记下来 → 半年后回来评估 → 系统给你生成**决策者画像**。
+## Agent 调用指南
 
----
+### 核心原则
 
-## 触发条件
+- 加 `--json` 标志后，所有命令输出纯 JSON，方便 Agent 解析。
+- 不加 `--json` 则输出人类可读的富文本。
+- JSON 模式下不需要交互确认。
 
-| 你想做什么 | 说这句就行 | 背后执行 |
-|---|---|---|
-| 记录新决策 | "记下这个决定" / "记录决策" / "存档一个决定" | `scripts/decision_archives.py add` |
-| 查看所有决策 | "我的决策" / "决策列表" / "所有决定" | `scripts/decision_archives.py list` |
-| 评估一个决策 | "复盘xxx" / "回顾决策" / "评估一下" | `scripts/decision_archives.py review <id或title>` |
-| 待评估队列 | "有哪些需要复盘的" / "待回顾" | `scripts/decision_archives.py pending` |
-| 成长叙事 | "我的决策画像" / "我是什么决策者" / "决策模式分析" | `scripts/decision_archives.py insights` |
-| 统计概览 | "决策统计" / "决策数据" / "档案馆概况" | `scripts/decision_archives.py stats` |
-| 评分系统 | "决策评分" / "最佳决策" / "最差决定" | `scripts/decision_archives.py score` |
-
----
-
-## 工作流
-
-```
-你用决策.jpg 了重要决定
-  └─ agent 调用 scripts/decision_archives.py add
-       ├─ 填类别（职业/感情/财务/生活/健康/教育/其他）
-       ├─ 填标题和决策内容
-       ├─ 填备选方案（有哪些选项你放弃了）
-       ├─ 填选择理由 + 预期结果
-       ├─ 填风险等级（低/中/高）
-       └─ ✅ 保存，告诉用户6个月后回来看
-
-6 个月后你问"有什么要复盘的"
-  └─ agent 调用 scripts/decision_archives.py pending
-       ├─ 显示所有到期但未评估的决策
-       └─ "xx 决定到期了，要来评估结果吗？"
-
-你评估一个决策
-  └─ agent 调用 scripts/decision_archives.py review <id>
-       ├─ 显示当初的记录（当时你选了啥、为啥、期望啥）
-       ├─ 填实际结果（1-5星）
-       ├─ 填学到了什么
-       └─ ✅ 存档，进入复盘完成
-
-你要看成长叙事
-  └─ agent 调用 scripts/decision_archives.py insights
-       ├─ 你的决策者画像（谨慎型/冒险型/直觉型/分析型）
-       ├─ 最佳决策 TOP 3（评分最高）
-       ├─ 最差决策 TOP 3（评分最低）
-       ├─ 失误模式分析（你在哪种情境下总翻车）
-       ├─ 趋势（你的决策力在进步吗）
-       └─ 成长故事线（按时间轴展示你做过的所有决定）
-```
-
----
-
-## 数据模型
-
-每个决策包含以下字段：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `id` | UUID | 唯一标识 |
-| `date_made` | ISO日期 | 做决定的时间 |
-| `category` | 枚举 | career / love / finance / lifestyle / health / education / other |
-| `title` | str | 短标题（eg. "从A公司跳槽到B公司"） |
-| `decision_made` | str | 你做了什么选择 |
-| `alternatives` | list[str] | 你放弃的其他选项 |
-| `rationale` | str | 选择理由 |
-| `expected_outcome` | str | 你当初预期会怎样 |
-| `risk_level` | enum | low / medium / high |
-| `review_date` | ISO | 预计复盘日期（默认+6个月） |
-| `status` | enum | pending / reviewed / archived |
-| `review` | object or null | 复盘数据↓ |
-| `review.review_date` | ISO | 实际复盘日期 |
-| `review.outcome` | str | 实际结果描述 |
-| `review.rating` | int | 1-5星（5=完全对, 1=完全错） |
-| `review.lessons` | str | 你学到了什么 |
-| `review.surprises` | str | 意料之外的事 |
-| `review.would_change` | str | 如果重来会怎么选 |
-| `tags` | list[str] | 自定义标签 |
-
----
-
-## 核心功能
-
-### 1️⃣ 记录决策 `add`
-交互式录入，每一步都让用户填空。省去记参数的学习成本。
-
-### 2️⃣ 定期复盘 `pending` + `review`
-- 默认 6 个月后提醒复盘
-- 复盘时展示"当时你是怎么想的"，防止**记忆偏差**
-- 评分 1-5，记录教训
-
-### 3️⃣ 决策者画像 `insights`
-基于所有已复盘决策，分析你的决策风格：
-
-- **类型判断**：你的决策是偏保守（低风险为主）还是偏激进？
-- **准确率**：不同类别的决策正确率（职业决定准不准？感情决定呢？）
-- **失误模式**：你在什么情境下总翻车？（eg. "每次在压力大时做的决定，3次里错2次"）
-- **进步曲线**：越新的决策评分越高吗？你在成长吗？
-- **故事线**：按时间轴串联你的人生关键节点
-
-### 4️⃣ 评分系统 `score`
-每个决策都有"当初判断准确度"评分。可以直接问"我最好的决定是什么"。
-
----
-
-## 使用示例
+### 记录决策（JSON 模式，非交互）
 
 ```bash
-# 记录一个决定
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py add
-# → 交互式问答，一步步填
+python3 scripts/decision_archives.py add --json \
+  --title "跳槽到B公司" \
+  --category career \
+  --decision "接受了B公司的offer" \
+  --rationale "薪资涨30%，团队更小更灵活" \
+  --expected "能接触到更多核心业务" \
+  --risk high \
+  --tags 跳槽,职业发展
 
-# 查看待复盘
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py pending
-# → 显示所有到期未评估的决策
-
-# 复盘一个决策
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py review abc123
-# → 展示"当时你怎么想的"，然后互动填结果
-
-# 成长叙事
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py insights
-# → 生成完整的决策者画像和成长故事线
-
-# 统计概览
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py stats
-
-# 决策评分排名
-python3 ~/.hermes/skills/decision-archives/scripts/decision_archives.py score
+# 返回:
+# {"status":"success","record":{...},"total":1}
 ```
 
----
+### 复盘评估（JSON 模式，非交互）
 
-## 配套文件
+```bash
+python3 scripts/decision_archives.py review <id> --json \
+  --outcome "在B公司成长了很多，但加班严重" \
+  --rating 4 \
+  --lessons "薪资不是唯一因素，工作生活平衡也很重要" \
+  --surprises "没想到加班这么严重"
+
+# 返回:
+# {"status":"success","record":{...}}
+```
+
+### 查询与洞察
+
+```bash
+# 待复盘列表
+python3 scripts/decision_archives.py pending --json
+
+# 统计概览
+python3 scripts/decision_archives.py stats --json
+
+# 决策者画像与成长叙事
+python3 scripts/decision_archives.py insights --json
+
+# 评分排名
+python3 scripts/decision_archives.py score --json
+
+# 导出
+python3 scripts/decision_archives.py export --format csv
+python3 scripts/decision_archives.py export --json
+```
+
+## 目录结构
 
 ```
 decision-archives/
-├── SKILL.md              ← 本文件
-├── _meta.json            ← 元数据
+├── SKILL.md
+├── _meta.json
+├── dashboard.html              # 可视化仪表盘
 ├── scripts/
-│   └── decision_archives.py  ← 核心脚本
+│   └── decision_archives.py    # 全功能 CLI（中英文命令 + --json）
 └── data/
-    └── decisions.json    ← 数据持久化（自动创建）
+    └── decisions.json          # 决策数据（自动创建）
 ```
 
----
+## CLI 参考
 
-## 为什么你要用这个 skill
+```bash
+python3 scripts/decision_archives.py add       [--json] [--title <标题>] [--category <类别>] [--decision <选择>] [--rationale <理由>] [--expected <预期>] [--risk <low|medium|high>] [--tags <t1,t2>]
+python3 scripts/decision_archives.py list      [--json]
+python3 scripts/decision_archives.py pending   [--json]
+python3 scripts/decision_archives.py review <id> [--json] [--rating <1-5>] [--outcome <结果>] [--lessons <教训>]
+python3 scripts/decision_archives.py insights  [--json]
+python3 scripts/decision_archives.py stats     [--json]
+python3 scripts/decision_archives.py score     [--json]
+python3 scripts/decision_archives.py delete <id> [--json]
+python3 scripts/decision_archives.py export [--format csv|json]
+python3 scripts/decision_archives.py dashboard
+python3 scripts/decision_archives.py -h, --help
+```
 
-- 🔍 **对抗记忆偏差**：人过半年会美化/扭曲当初的选择，你记下的是当时真实的想法
-- 📈 **可量化的成长**：不是"我感觉我进步了"，而是"我今年决策评分比去年高0.7分"
-- 🧠 **发现盲区**：你可能不知道自己在"小金额低频决策"上准确率只有 20%
-- 📖 **人生故事本**：几年后翻出来看，是一条完整的时间线："2026年我做了12个重要决定"
+### 命令别名
+
+| 内部命令 | 中文别名 | 英文别名 |
+|----------|----------|----------|
+| add | 记录, 添加, 新增 | add, new |
+| list | 列表, 清单, 全部 | list, ls, all |
+| pending | 待复盘, 待回顾 | pending |
+| review | 复盘, 回顾, 评估 | review, evaluate |
+| insights | 洞察, 画像, 成长叙事, 决策模式 | insights, profile |
+| stats | 统计, 概况 | stats, stat |
+| score | 评分, 排名 | score, ranking |
+| delete | 删除 | delete, del, rm |
+| export | 导出 | export |
+| dashboard | 仪表盘, 看板 | dashboard |
+
+### 类别
+
+`career` 💼 职业 | `love` ❤️ 感情 | `finance` 💰 财务 | `lifestyle` 🏠 生活 | `health` 🏥 健康 | `education` 📚 教育 | `other` 📌 其他
+
+### 风险等级
+
+`low` 🟢 低风险 | `medium` 🟡 中等风险 | `high` 🔴 高风险
+
+## JSON 输出规范
+
+### add --json
+
+```json
+{"status": "success", "record": {"id": "...", "date_made": "2026-07-14", "category": "career", "title": "...", "decision_made": "...", "risk_level": "high", "status": "pending", ...}, "total": 1}
+```
+
+### review --json
+
+```json
+{"status": "success", "record": {"id": "...", "status": "reviewed", "review": {"review_date": "...", "outcome": "...", "rating": 4, "lessons": "...", "surprises": "...", "would_change": "..."}}}
+```
+
+### pending --json
+
+```json
+{"due": [...], "upcoming": [...], "due_count": 2, "upcoming_count": 3}
+```
+
+### insights --json
+
+```json
+{"empty": false, "total": 10, "reviewed_count": 5, "pending_count": 5, "avg_rating": 3.8, "decision_type": "平衡型", "type_description": "...", "best_decisions": [...], "worst_decisions": [...], "category_accuracy": {...}, "risk_accuracy": {...}, "failure_pattern": {...}, "trend": {"trend": "略有进步", "early_avg": 3.2, "late_avg": 4.0, "diff": 0.8}, "timeline": [...]}
+```
+
+### 错误输出
+
+```json
+{"status": "error", "error": "缺少 --title。用法: add --title <标题> ..."}
+```
+
+## 工作流
+
+1. **记录决策**：用户做出重要决定时，用 `add` 记录详情
+2. **定期复盘**：到复盘日期后，用 `review` 评估结果（1-5 星评分）
+3. **查看洞察**：积累 3+ 条已复盘后，用 `insights` 查看决策者画像
+4. **可视化**：用 `dashboard` 打开 HTML 仪表盘查看图表
+
+## 设计原则
+
+- 评分 1-5 星制，简单直观
+- 风险加权绩效分，高风险决策如果做好了，贡献更大
+- 不评判决策好坏，只记录和反思
+- 所有数据本地存储，隐私安全

@@ -1,11 +1,30 @@
 {
   "name": "decision-archives",
-  "version": "1.0.0",
-  "description": "人生决策档案馆 — 记录所有重要决定，评估结果，生成成长叙事与决策者画像",
-  "author": "alan",
-  "created": "2026-07-13",
-  "tags": ["life-management", "journaling", "reflection", "decision-making", "personal-growth"],
-  "dependencies": [],
-  "platform": "cross-platform (stdlib only)",
-  "data_storage": "~/.hermes/skills/decision-archives/data/decisions.json"
+  "version": "2.0.0",
+  "description": "🏛️ 决策档案馆 — 记录人生重要决定，定时复盘评估，生成成长叙事与决策者画像",
+  "author": "",
+  "entry": "scripts/decision_archives.py",
+  "data_dir": "data",
+  "data_file": "data/decisions.json",
+  "dashboard": "dashboard.html",
+  "triggers": ["决策", "档案馆", "复盘", "decision", "archive", "review"],
+  "commands": {
+    "add": {"aliases": ["记录", "添加", "新增", "new"], "supports_json": true, "interactive": true},
+    "list": {"aliases": ["列表", "清单", "全部", "ls", "all"], "supports_json": true},
+    "pending": {"aliases": ["待复盘", "待回顾"], "supports_json": true},
+    "review": {"aliases": ["复盘", "回顾", "评估", "evaluate"], "supports_json": true, "interactive": true},
+    "insights": {"aliases": ["洞察", "画像", "成长叙事", "决策模式", "profile"], "supports_json": true},
+    "stats": {"aliases": ["统计", "概况", "stat"], "supports_json": true},
+    "score": {"aliases": ["评分", "排名", "ranking"], "supports_json": true},
+    "delete": {"aliases": ["删除", "del", "rm"], "supports_json": true},
+    "export": {"aliases": ["导出"], "supports_json": true},
+    "dashboard": {"aliases": ["仪表盘", "看板"], "supports_json": false}
+  },
+  "categories": {
+    "career": "💼 职业", "love": "❤️ 感情", "finance": "💰 财务",
+    "lifestyle": "🏠 生活", "health": "🏥 健康", "education": "📚 教育", "other": "📌 其他"
+  },
+  "risk_levels": {
+    "low": "🟢 低风险", "medium": "🟡 中等风险", "high": "🔴 高风险"
+  }
 }

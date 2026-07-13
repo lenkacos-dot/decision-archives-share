@@ -23,9 +23,7 @@ import uuid
 import csv
 import io
 import subprocess
-import webbrowser
 from datetime import datetime, date, timedelta
-from textwrap import wrap
 
 # ── 路径 ──────────────────────────────────────────────
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,6 +45,49 @@ CATEGORIES = {
 
 RISK_LEVELS = {"low": "🟢 低风险", "medium": "🟡 中等风险", "high": "🔴 高风险"}
 
+# ── 常量 ──────────────────────────────────────────────
+SEP_WIDE = 60
+SEP_NARROW = 50
+REVIEW_DELTA = 180  # 默认复盘间隔天数
+MATRIX_DIMS = ["收益", "风险", "可行性", "直觉", "时间成本"]
+
+# ── 辅助函数（消除重复模式）──────────────────────────
+
+def get_reviewed(decisions):
+    return [d for d in decisions if d.get("review")]
+
+def fmt_cat(cat, fallback="📌"):
+    return CATEGORIES.get(cat, fallback)
+
+def fmt_risk(risk):
+    return RISK_LEVELS.get(risk, risk)
+
+def star_str(n, total=5):
+    return "★" * n + "☆" * (total - n)
+
+def progress_bar(ratio, length=50, fill="▓", empty="░"):
+    n = max(0, min(length, int(ratio * length)))
+    return fill * n + empty * (length - n)
+
+def bar_chars(n, max_n=20, fill="█", empty="░"):
+    return fill * n + empty * (max_n - n) if n <= max_n else fill * max_n
+
+def parse_tags(raw):
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+def safe_str(val, default=""):
+    return val if val is not None and isinstance(val, str) else default
+
+def date_diff(d1_str, d2_str):
+    """计算两个日期字符串之间的天数差。返回 None 如果解析失败。"""
+    try:
+        d1 = datetime.strptime(d1_str, "%Y-%m-%d").date() if isinstance(d1_str, str) else d1_str
+        d2 = datetime.strptime(d2_str, "%Y-%m-%d").date() if isinstance(d2_str, str) else d2_str
+        return (d2 - d1).days
+    except (ValueError, TypeError):
+        return None
+
+
 # ── 数据持久化 ────────────────────────────────────────
 
 def load_data():
@@ -67,7 +108,7 @@ def find_decision(data, identifier):
         if d["id"] == identifier:
             return d
     # 按标题模糊匹配
-    matches = [d for d in data["decisions"] if identifier.lower() in d["title"].lower()]
+    matches = [d for d in data["decisions"] if d.get("title") and identifier.lower() in d["title"].lower()]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
@@ -121,9 +162,6 @@ def pick_option(prompt, options):
 
 # ── 命令实现 ──────────────────────────────────────────
 
-# 默认矩阵维度
-MATRIX_DIMS = ["收益", "风险", "可行性", "直觉", "时间成本"]
-
 
 def _input_matrix(chosen_decision, alternatives_raw):
     """交互式输入决策矩阵评分"""
@@ -171,7 +209,7 @@ def cmd_add(fields=None):
         risk = fields.get("risk", "medium")
         tags_raw = fields.get("tags", "")
         tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
-        review_date = fields.get("review_date", (date.today() + timedelta(days=180)).isoformat())
+        review_date = fields.get("review_date", (date.today() + timedelta(days=REVIEW_DELTA)).isoformat())
 
         print(f"  类别: {CATEGORIES.get(category, category)}")
         print(f"  标题: {title}")
@@ -191,7 +229,7 @@ def cmd_add(fields=None):
         tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
         # 默认 6 个月后复盘
-        review_date = (date.today() + timedelta(days=180)).isoformat()
+        review_date = (date.today() + timedelta(days=REVIEW_DELTA)).isoformat()
         review_choice = ask(f"复盘日期（默认 6 个月后: {review_date}），直接回车或输入其他日期", default=review_date)
         try:
             datetime.strptime(review_choice, "%Y-%m-%d")
@@ -227,12 +265,12 @@ def cmd_add(fields=None):
     data["decisions"].append(entry)
     save_data(data)
 
-    print("\n" + "─" * 50)
+    print("\n" + "─" * SEP_NARROW)
     print(f"  ✅ 决策已存档！")
     print(f"  📋 ID: {entry['id'][:8]}...")
     print(f"  📅 复盘日期: {review_date}")
     print(f"  📊 共 {len(data['decisions'])} 个决策")
-    print("─" * 50)
+    print("─" * SEP_NARROW)
 
 
 def cmd_list():
@@ -248,7 +286,7 @@ def cmd_list():
     print("=" * 60)
 
     for d in sorted(decisions, key=lambda x: x["date_made"], reverse=True):
-        cat_icon = CATEGORIES.get(d["category"], "📌")
+        cat_icon = fmt_cat(d["category"])
         reviewed = d["review"] is not None
         emoji = "✅" if reviewed else "⏳"
         rating_str = f" ★{d['review']['rating']}" if d.get("review") and d["review"].get("rating") else ""
@@ -266,9 +304,9 @@ def cmd_pending():
     data = load_data()
     today = date.today().isoformat()
 
-    due = [d for d in data["decisions"]
+    due = [d for d in data.get("decisions", [])
            if d["status"] == "pending" and d["review_date"] and d["review_date"] <= today]
-    upcoming = [d for d in data["decisions"]
+    upcoming = [d for d in data.get("decisions", [])
                 if d["status"] == "pending" and d["review_date"] and d["review_date"] > today]
 
     if not due and not upcoming:
@@ -280,7 +318,7 @@ def cmd_pending():
         print(f"  ⏰ 已到期待复盘（{len(due)} 个）")
         print("=" * 60)
         for d in sorted(due, key=lambda x: x["review_date"]):
-            cat_icon = CATEGORIES.get(d["category"], "📌")
+            cat_icon = fmt_cat(d["category"])
             days_over = (date.today() - datetime.strptime(d["review_date"], "%Y-%m-%d").date()).days
             print(f"\n  🔴 [{d['id'][:8]}] {cat_icon} {d['title']}")
             print(f"     超期 {days_over} 天 | 风险: {RISK_LEVELS.get(d['risk_level'], d['risk_level'])}")
@@ -288,11 +326,11 @@ def cmd_pending():
             print(f"     使用: review {d['id'][:8]}")
 
     if upcoming:
-        print("\n" + "─" * 60)
+        print("\n" + "─" * SEP_WIDE)
         print(f"  📅 即将到期（{len(upcoming)} 个）")
-        print("─" * 60)
+        print("─" * SEP_WIDE)
         for d in sorted(upcoming, key=lambda x: x["review_date"]):
-            cat_icon = CATEGORIES.get(d["category"], "📌")
+            cat_icon = fmt_cat(d["category"])
             days_left = (datetime.strptime(d["review_date"], "%Y-%m-%d").date() - date.today()).days
             print(f"  [{d['id'][:8]}] {cat_icon} {d['title']} — 还剩 {days_left} 天")
 
@@ -310,7 +348,7 @@ def cmd_review(identifier):
     print("=" * 50)
 
     # 展示当初的记录
-    cat_icon = CATEGORIES.get(entry["category"], "📌")
+    cat_icon = fmt_cat(entry["category"])
     print(f"\n📋 当初的记录:")
     print(f"  {cat_icon} 类别: {entry['category']}")
     print(f"  📅 日期: {entry['date_made']}")
@@ -358,11 +396,11 @@ def cmd_review(identifier):
     entry["status"] = "reviewed"
 
     save_data(data)
-    print("\n" + "─" * 50)
+    print("\n" + "─" * SEP_NARROW)
     star_str = "★" * rating + "☆" * (5 - rating)
     print(f"  ✅ 复盘完成！评分: {rating}/5 {star_str}")
     print(f"  📖 教训已存档: {lessons[:50]}...")
-    print("─" * 50)
+    print("─" * SEP_NARROW)
 
 
 def cmd_insights():
@@ -455,22 +493,22 @@ def cmd_insights():
     if best:
         print(f"\n  🏆 最佳决策 TOP {min(3, len(best))}:")
         for i, d in enumerate(best, 1):
-            cat_icon = CATEGORIES.get(d["category"], "📌")
+            cat_icon = fmt_cat(d["category"])
             print(f"    {i}. ★{d['review']['rating']} {cat_icon} {d['title']} ({d['date_made']})")
             print(f"       {d['review']['lessons'][:60]}...")
 
     if worst:
         print(f"\n  💀 最差决策 TOP {min(3, len(worst))}:")
         for i, d in enumerate(worst, 1):
-            cat_icon = CATEGORIES.get(d["category"], "📌")
+            cat_icon = fmt_cat(d["category"])
             print(f"    {i}. ★{d['review']['rating']} {cat_icon} {d['title']} ({d['date_made']})")
             print(f"       {d['review']['lessons'][:60]}...")
 
     # ── 各类别准确率 ──
     print(f"\n  📊 各类别决策准确率:")
-    for cat, data2 in sorted(cat_acc.items(), key=lambda x: x[1]["total_rating"] / x[1]["count"], reverse=True):
-        avg_c = data2["total_rating"] / data2["count"]
-        cat_icon = CATEGORIES.get(cat, "📌")
+    for cat, cat_data in sorted(cat_acc.items(), key=lambda x: x[1]["total_rating"] / x[1]["count"], reverse=True):
+        avg_c = cat_data["total_rating"] / cat_data["count"]
+        cat_icon = fmt_cat(cat)
         bar = "▓" * int(avg_c * 10) + "░" * (50 - int(avg_c * 10))
         print(f"    {cat_icon} {cat}: {avg_c:.2f}/5 [{bar}] ({data2['count']}次)")
 
@@ -486,7 +524,7 @@ def cmd_insights():
         worst_cat = max(fail_by_cat, key=fail_by_cat.get) if fail_by_cat else None
         if worst_cat:
             fail_count = fail_by_cat[worst_cat]
-            cat_icon = CATEGORIES.get(worst_cat, "📌")
+            cat_icon = fmt_cat(worst_cat)
             print(f"     ⚠️ 你在 {cat_icon} {worst_cat} 类决策中最容易失误 ({fail_count}次)")
 
         # 按风险看失误
@@ -534,7 +572,7 @@ def cmd_insights():
     # ── 时间线 ──
     print(f"\n  📖 人生决策时间线:")
     for d in sorted(decisions, key=lambda x: x["date_made"]):
-        cat_icon = CATEGORIES.get(d["category"], "📌")
+        cat_icon = fmt_cat(d["category"])
         review_status = "✅" if d["review"] else "⏳"
         rating_str = f" ★{d['review']['rating']}" if d.get("review") and d["review"].get("rating") else ""
         print(f"     {d['date_made']} {review_status} {cat_icon} {d['title']}{rating_str}")
@@ -588,7 +626,7 @@ def cmd_stats():
     for d in decisions:
         cat_count[d["category"]] = cat_count.get(d["category"], 0) + 1
     for cat, count in sorted(cat_count.items(), key=lambda x: x[1], reverse=True):
-        cat_icon = CATEGORIES.get(cat, "📌")
+        cat_icon = fmt_cat(cat)
         bar = "█" * count + "░" * (20 - count)
         print(f"    {cat_icon} {cat}: {count} {bar}")
 
@@ -626,7 +664,7 @@ def cmd_score():
 
     sorted_d = sorted(reviewed, key=lambda d: d["review"]["rating"], reverse=True)
     for i, d in enumerate(sorted_d, 1):
-        cat_icon = CATEGORIES.get(d["category"], "📌")
+        cat_icon = fmt_cat(d["category"])
         star_str = "★" * d["review"]["rating"] + "☆" * (5 - d["review"]["rating"])
         print(f"\n  #{i} {star_str} {cat_icon} {d['title']}")
         print(f"     {d['date_made']} | {RISK_LEVELS.get(d['risk_level'], d['risk_level'])}")
@@ -784,7 +822,7 @@ def main():
         if len(sys.argv) >= 3 and sys.argv[2] == "--format":
             if len(sys.argv) >= 4:
                 fmt = sys.argv[3]
-        elif len(sys.argv) >= 2 and sys.argv[-1] == "csv":
+        elif len(sys.argv) == 3 and sys.argv[2] == "csv":
             fmt = "csv"
         cmd_export(fmt)
     elif command == "dashboard":

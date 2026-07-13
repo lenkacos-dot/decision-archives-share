@@ -1,0 +1,23 @@
+{
+  "name": "决策档案馆",
+  "description": "记录人生所有重要决定，评估结果，生成成长叙事与决策者画像",
+  "version": "1.1.0",
+  "language": "python",
+  "entry_point": "scripts/decision_archives.py",
+  "data_file": "data/decisions.json",
+  "commands": {
+    "add": "记录新决策（交互式或 CLI 参数模式）",
+    "list": "列出所有决策",
+    "pending": "显示待复盘决策",
+    "review": "复盘评估一个决策",
+    "insights": "生成成长叙事与决策者画像",
+    "stats": "统计概览",
+    "score": "评分排名",
+    "delete": "删除一个决策",
+    "export": "导出数据（JSON/CSV）",
+    "dashboard": "打开 HTML 仪表盘"
+  },
+  "cli_example": "python3 scripts/decision_archives.py add -c career -t \"跳槽\" -d \"接受了offer\"",
+  "purity": "stdlib only, zero external dependencies",
+  "platforms": ["macOS", "Linux", "Windows"]
+}
